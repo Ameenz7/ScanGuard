@@ -1,14 +1,5 @@
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import type { Scan, ScanResult, Vulnerability } from '@shared/schema';
-
-// Add type declaration for autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-    lastAutoTable?: { finalY: number };
-  }
-}
 
 export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] }) {
   const doc = new jsPDF();
@@ -57,30 +48,44 @@ export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vuln
   doc.text(`• Low Risk Issues: ${lowRiskCount}`, 30, yPos);
   yPos += 20;
   
-  // Open Ports Table
+  // Open Ports Section
   if (openPorts.length > 0) {
     doc.setFontSize(16);
     doc.text('Open Ports & Services', 20, yPos);
-    yPos += 10;
+    yPos += 15;
     
-    const portData = openPorts.map(port => [
-      port.port.toString(),
-      port.protocol.toUpperCase(),
-      port.service || 'Unknown',
-      port.version || 'Unknown',
-      (port.riskLevel || 'low').charAt(0).toUpperCase() + (port.riskLevel || 'low').slice(1)
-    ]);
+    // Create simple table manually
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Port', 25, yPos);
+    doc.text('Protocol', 55, yPos);
+    doc.text('Service', 85, yPos);
+    doc.text('Version', 125, yPos);
+    doc.text('Risk Level', 165, yPos);
+    yPos += 8;
     
-    doc.autoTable({
-      startY: yPos,
-      head: [['Port', 'Protocol', 'Service', 'Version', 'Risk Level']],
-      body: portData,
-      styles: { fontSize: 10 },
-      headStyles: { fillColor: [44, 82, 130] },
-      alternateRowStyles: { fillColor: [245, 245, 245] }
+    // Draw header line
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos, 190, yPos);
+    yPos += 5;
+    
+    doc.setFont('helvetica', 'normal');
+    
+    openPorts.forEach(port => {
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      doc.text(port.port.toString(), 25, yPos);
+      doc.text(port.protocol.toUpperCase(), 55, yPos);
+      doc.text(port.service || 'Unknown', 85, yPos);
+      doc.text(port.version || 'Unknown', 125, yPos);
+      doc.text((port.riskLevel || 'low').charAt(0).toUpperCase() + (port.riskLevel || 'low').slice(1), 165, yPos);
+      yPos += 8;
     });
     
-    yPos = (doc as any).lastAutoTable.finalY + 20;
+    yPos += 10;
   }
   
   // Vulnerabilities
