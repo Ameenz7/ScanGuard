@@ -6,11 +6,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Scan, ScanResult, Vulnerability } from "@shared/schema";
+import type { Scan, ScanResult, Vulnerability, SslAnalysis } from "@shared/schema";
 import { generatePDFReport } from "../lib/pdf-generator";
 
 interface ScanResultsProps {
-  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] };
+  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis };
   onNewScan: () => void;
 }
 
@@ -35,6 +35,30 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
       case 'medium': return 'text-orange-800 bg-orange-50 border-orange-200';
       case 'low': return 'text-green-800 bg-green-50 border-green-200';
       default: return 'text-slate-800 bg-slate-50 border-slate-200';
+    }
+  };
+
+  const getSSLRatingColor = (grade: string) => {
+    switch (grade) {
+      case 'A+': return 'text-green-600';
+      case 'A': return 'text-green-500';
+      case 'B': return 'text-yellow-500';
+      case 'C': return 'text-orange-500';
+      case 'D': return 'text-red-400';
+      case 'F': return 'text-red-600';
+      default: return 'text-slate-500';
+    }
+  };
+
+  const getSSLIconColor = (grade: string) => {
+    switch (grade) {
+      case 'A+': return 'text-green-400';
+      case 'A': return 'text-green-400';
+      case 'B': return 'text-yellow-400';
+      case 'C': return 'text-orange-400';
+      case 'D': return 'text-red-400';
+      case 'F': return 'text-red-500';
+      default: return 'text-slate-400';
     }
   };
 
@@ -179,12 +203,12 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
                 <div className="flex items-center justify-between">
                   <div>
                     <motion.p 
-                      className="text-2xl font-bold text-green-600"
+                      className={`text-2xl font-bold ${getSSLRatingColor(scan.sslAnalysis?.grade || 'N/A')}`}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.6, duration: 0.5 }}
                     >
-                      A+
+                      {scan.sslAnalysis?.grade || 'N/A'}
                     </motion.p>
                     <p className="text-sm text-slate-600">SSL Rating</p>
                   </div>
@@ -192,7 +216,7 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
                     whileHover={{ rotate: 10, scale: 1.1 }}
                     transition={{ duration: 0.2 }}
                   >
-                    <Shield className="w-8 h-8 text-green-400" />
+                    <Shield className={`w-8 h-8 ${getSSLIconColor(scan.sslAnalysis?.grade || 'N/A')}`} />
                   </motion.div>
                 </div>
               </CardContent>
@@ -291,6 +315,109 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {/* SSL/TLS Certificate Details */}
+          {scan.sslAnalysis && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.6 }}
+            >
+              <Card className="data-visualization">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Shield className="w-5 h-5 mr-2 text-primary" />
+                    SSL/TLS Certificate Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2">Certificate Information</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Valid:</span>
+                            <span className={scan.sslAnalysis.certificateValid ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.sslAnalysis.certificateValid ? 'Yes' : 'No'}
+                            </span>
+                          </div>
+                          {scan.sslAnalysis.daysUntilExpiry !== null && (
+                            <div className="flex justify-between">
+                              <span className="text-slate-600">Days until expiry:</span>
+                              <span className={scan.sslAnalysis.daysUntilExpiry < 30 ? 'text-orange-600 font-medium' : 'text-green-600'}>
+                                {scan.sslAnalysis.daysUntilExpiry}
+                              </span>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Key Size:</span>
+                            <span>{scan.sslAnalysis.keySize ? `${scan.sslAnalysis.keySize} bits` : 'Unknown'}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Signature Algorithm:</span>
+                            <span>{scan.sslAnalysis.signatureAlgorithm || 'Unknown'}</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2">Security Features</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">HSTS:</span>
+                            <span className={scan.sslAnalysis.hasHSTS ? 'text-green-600 font-medium' : 'text-orange-600'}>
+                              {scan.sslAnalysis.hasHSTS ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Score:</span>
+                            <span className="font-medium">{scan.sslAnalysis.score}/100</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2">Supported Protocols</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {Array.isArray(scan.sslAnalysis.protocolVersions) && scan.sslAnalysis.protocolVersions.length > 0 ? (
+                            scan.sslAnalysis.protocolVersions.map((protocol) => (
+                              <Badge 
+                                key={protocol} 
+                                className={protocol.includes('1.3') ? 'bg-green-100 text-green-800' : 
+                                          protocol.includes('1.2') ? 'bg-blue-100 text-blue-800' : 
+                                          'bg-orange-100 text-orange-800'}
+                              >
+                                {protocol}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-slate-500 text-sm">No protocol information available</span>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {Array.isArray(scan.sslAnalysis.vulnerabilities) && scan.sslAnalysis.vulnerabilities.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-900 mb-2">SSL Vulnerabilities</h4>
+                          <div className="space-y-2">
+                            {scan.sslAnalysis.vulnerabilities.map((vuln, index) => (
+                              <div key={index} className="p-2 bg-orange-50 border border-orange-200 rounded text-sm">
+                                <AlertTriangle className="w-4 h-4 text-orange-600 inline mr-2" />
+                                {vuln}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
 
           {openPorts.length === 0 && scan.vulnerabilities.length === 0 && (

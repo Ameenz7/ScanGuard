@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
-import type { Scan, ScanResult, Vulnerability } from '@shared/schema';
+import type { Scan, ScanResult, Vulnerability, SslAnalysis } from '@shared/schema';
 
-export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] }) {
+export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis }) {
   try {
     console.log('Starting PDF generation for scan:', scan.id);
     const doc = new jsPDF();
@@ -88,6 +88,77 @@ export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vuln
     });
     
     yPos += 10;
+  }
+  
+  // SSL/TLS Certificate Analysis
+  if (scan.sslAnalysis) {
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFontSize(16);
+    doc.text('SSL/TLS Certificate Analysis', 20, yPos);
+    yPos += 15;
+    
+    // SSL Grade box
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SSL Grade:', 25, yPos);
+    
+    // Color-coded grade
+    const gradeColor = scan.sslAnalysis.grade === 'A+' || scan.sslAnalysis.grade === 'A' ? [34, 197, 94] :
+                      scan.sslAnalysis.grade === 'B' ? [234, 179, 8] :
+                      scan.sslAnalysis.grade === 'C' ? [249, 115, 22] : [239, 68, 68];
+    doc.setTextColor(gradeColor[0], gradeColor[1], gradeColor[2]);
+    doc.text(scan.sslAnalysis.grade, 70, yPos);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    yPos += 10;
+    
+    // Certificate details
+    doc.text(`Certificate Valid: ${scan.sslAnalysis.certificateValid ? 'Yes' : 'No'}`, 25, yPos);
+    yPos += 6;
+    
+    if (scan.sslAnalysis.daysUntilExpiry !== null) {
+      doc.text(`Days until expiry: ${scan.sslAnalysis.daysUntilExpiry}`, 25, yPos);
+      yPos += 6;
+    }
+    
+    if (scan.sslAnalysis.keySize) {
+      doc.text(`Key Size: ${scan.sslAnalysis.keySize} bits`, 25, yPos);
+      yPos += 6;
+    }
+    
+    if (scan.sslAnalysis.signatureAlgorithm) {
+      doc.text(`Signature Algorithm: ${scan.sslAnalysis.signatureAlgorithm}`, 25, yPos);
+      yPos += 6;
+    }
+    
+    doc.text(`HSTS: ${scan.sslAnalysis.hasHSTS ? 'Enabled' : 'Disabled'}`, 25, yPos);
+    yPos += 6;
+    
+    doc.text(`Security Score: ${scan.sslAnalysis.score}/100`, 25, yPos);
+    yPos += 10;
+    
+    // SSL Vulnerabilities
+    if (Array.isArray(scan.sslAnalysis.vulnerabilities) && scan.sslAnalysis.vulnerabilities.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('SSL/TLS Vulnerabilities:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      yPos += 8;
+      
+      scan.sslAnalysis.vulnerabilities.forEach((vuln) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(`• ${vuln}`, 30, yPos);
+        yPos += 6;
+      });
+    }
+    
+    yPos += 15;
   }
   
   // Vulnerabilities

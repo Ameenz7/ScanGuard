@@ -1,4 +1,4 @@
-import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability } from "@shared/schema";
+import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability, type SslAnalysis, type InsertSslAnalysis } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -7,19 +7,23 @@ export interface IStorage {
   updateScan(id: string, updates: Partial<Scan>): Promise<Scan | undefined>;
   addScanResult(result: InsertScanResult): Promise<ScanResult>;
   addVulnerability(vulnerability: InsertVulnerability): Promise<Vulnerability>;
+  addSslAnalysis(sslAnalysis: InsertSslAnalysis): Promise<SslAnalysis>;
   getScanResults(scanId: string): Promise<ScanResult[]>;
   getVulnerabilities(scanId: string): Promise<Vulnerability[]>;
+  getSslAnalysis(scanId: string): Promise<SslAnalysis | undefined>;
 }
 
 export class MemStorage implements IStorage {
   private scans: Map<string, Scan>;
   private scanResults: Map<string, ScanResult>;
   private vulnerabilities: Map<string, Vulnerability>;
+  private sslAnalyses: Map<string, SslAnalysis>;
 
   constructor() {
     this.scans = new Map();
     this.scanResults = new Map();
     this.vulnerabilities = new Map();
+    this.sslAnalyses = new Map();
   }
 
   async createScan(insertScan: InsertScan): Promise<Scan> {
@@ -82,6 +86,30 @@ export class MemStorage implements IStorage {
 
   async getVulnerabilities(scanId: string): Promise<Vulnerability[]> {
     return Array.from(this.vulnerabilities.values()).filter(vuln => vuln.scanId === scanId);
+  }
+
+  async addSslAnalysis(sslAnalysis: InsertSslAnalysis): Promise<SslAnalysis> {
+    const id = randomUUID();
+    const ssl: SslAnalysis = { 
+      ...sslAnalysis, 
+      id,
+      certificateExpiry: sslAnalysis.certificateExpiry ?? null,
+      issuer: sslAnalysis.issuer ?? null,
+      subject: sslAnalysis.subject ?? null,
+      signatureAlgorithm: sslAnalysis.signatureAlgorithm ?? null,
+      keySize: sslAnalysis.keySize ?? null,
+      hasHSTS: sslAnalysis.hasHSTS ?? false,
+      daysUntilExpiry: sslAnalysis.daysUntilExpiry ?? null,
+      protocolVersions: sslAnalysis.protocolVersions ?? [],
+      cipherSuites: sslAnalysis.cipherSuites ?? [],
+      vulnerabilities: sslAnalysis.vulnerabilities ?? []
+    };
+    this.sslAnalyses.set(id, ssl);
+    return ssl;
+  }
+
+  async getSslAnalysis(scanId: string): Promise<SslAnalysis | undefined> {
+    return Array.from(this.sslAnalyses.values()).find(ssl => ssl.scanId === scanId);
   }
 }
 

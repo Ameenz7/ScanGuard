@@ -5,6 +5,7 @@ import { insertScanSchema } from "@shared/schema";
 import rateLimit from "express-rate-limit";
 import net from "net";
 import { URL } from "url";
+import { analyzeSslCertificate } from "./ssl-analyzer";
 
 // Rate limiting middleware
 const scanLimiter = rateLimit({
@@ -173,11 +174,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const scanResults = await storage.getScanResults(scan.id);
       const vulnerabilities = await storage.getVulnerabilities(scan.id);
+      const sslAnalysis = await storage.getSslAnalysis(scan.id);
 
       res.json({
         ...scan,
         scanResults,
-        vulnerabilities
+        vulnerabilities,
+        sslAnalysis
       });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -221,13 +224,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Perform SSL/TLS analysis if HTTPS is supported
+      let sslAnalysis = null;
+      const httpsPort = results.find(r => r.port === 443 && r.state === 'open');
+      if (httpsPort) {
+        try {
+          console.log(`Performing SSL analysis for ${url}`);
+          sslAnalysis = await analyzeSslCertificate(url, scanId);
+          await storage.addSslAnalysis(sslAnalysis);
+        } catch (error) {
+          console.error('SSL analysis failed:', error);
+        }
+      }
+      
       await storage.updateScan(scanId, { 
         status: "completed",
         completedAt: new Date(),
         results: { 
           totalPorts: results.length,
           openPorts: results.filter(r => r.state === 'open').length,
-          vulnerabilities: vulnerabilities.length
+          vulnerabilities: vulnerabilities.length,
+          sslAnalyzed: !!sslAnalysis
         }
       });
       

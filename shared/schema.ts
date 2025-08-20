@@ -35,6 +35,25 @@ export const vulnerabilities = pgTable("vulnerabilities", {
   recommendation: text("recommendation"),
 });
 
+export const sslAnalysis = pgTable("ssl_analysis", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scanId: varchar("scan_id").notNull(),
+  hostname: text("hostname").notNull(),
+  certificateValid: boolean("certificate_valid").notNull(),
+  certificateExpiry: timestamp("certificate_expiry"),
+  issuer: text("issuer"),
+  subject: text("subject"),
+  signatureAlgorithm: text("signature_algorithm"),
+  keySize: integer("key_size"),
+  protocolVersions: jsonb("protocol_versions"), // Array of supported TLS versions
+  cipherSuites: jsonb("cipher_suites"), // Array of supported cipher suites
+  grade: text("grade").notNull(), // A+, A, B, C, D, F
+  hasHSTS: boolean("has_hsts").default(false),
+  vulnerabilities: jsonb("vulnerabilities"), // Array of SSL-specific vulnerabilities
+  score: integer("score").notNull(), // 0-100 score
+  daysUntilExpiry: integer("days_until_expiry"),
+});
+
 export const insertScanSchema = createInsertSchema(scans).pick({
   url: true,
 });
@@ -47,9 +66,15 @@ export const insertVulnerabilitySchema = createInsertSchema(vulnerabilities).omi
   id: true,
 });
 
+export const insertSslAnalysisSchema = createInsertSchema(sslAnalysis).omit({
+  id: true,
+});
+
 export type InsertScan = z.infer<typeof insertScanSchema>;
 export type Scan = typeof scans.$inferSelect;
 export type ScanResult = typeof scanResults.$inferSelect;
 export type Vulnerability = typeof vulnerabilities.$inferSelect;
+export type SslAnalysis = typeof sslAnalysis.$inferSelect;
 export type InsertScanResult = z.infer<typeof insertScanResultSchema>;
 export type InsertVulnerability = z.infer<typeof insertVulnerabilitySchema>;
+export type InsertSslAnalysis = z.infer<typeof insertSslAnalysisSchema>;
