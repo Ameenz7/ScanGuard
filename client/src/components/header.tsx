@@ -1,6 +1,7 @@
 import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { Link } from "wouter";
 
 export function Header() {
   return (
@@ -28,9 +29,11 @@ export function Header() {
           </motion.div>
           
           <nav className="hidden md:flex items-center space-x-8">
-            <a href="#" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">Features</a>
+            <a href="#features" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">Features</a>
             <a href="#" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">Pricing</a>
-            <a href="#" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">Documentation</a>
+            <Link href="/docs" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">
+              Documentation
+            </Link>
             <a href="#" className="text-slate-600 hover:text-slate-900 font-medium transition-colors">Support</a>
           </nav>
 

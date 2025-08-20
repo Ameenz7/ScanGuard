@@ -5,6 +5,8 @@ import {
   Wifi, Bug, Shield, Eye, FileText, Clock, 
   Lock, AlertTriangle, Search, Zap, Globe, Cpu
 } from "lucide-react";
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { ScanForm } from "@/components/scan-form";
@@ -178,6 +180,20 @@ export default function Home() {
             >
               Identify vulnerabilities, scan open ports, and secure your web applications with our comprehensive security analysis tools. Fast, reliable, and ethical scanning for professionals.
             </motion.p>
+
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8"
+            >
+              <Link href="/docs">
+                <Button variant="outline" size="lg" className="flex items-center">
+                  <FileText className="w-5 h-5 mr-2" />
+                  View Documentation
+                </Button>
+              </Link>
+            </motion.div>
 
             <motion.div
               initial={{ opacity: 0, y: 20 }}
