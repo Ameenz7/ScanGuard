@@ -6,11 +6,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Scan, ScanResult, Vulnerability, SslAnalysis } from "@shared/schema";
+import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders } from "@shared/schema";
 import { generatePDFReport } from "../lib/pdf-generator";
 
 interface ScanResultsProps {
-  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis };
+  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders };
   onNewScan: () => void;
 }
 
@@ -411,6 +411,111 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
                               </div>
                             ))}
                           </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Security Headers Analysis */}
+          {scan.securityHeaders && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.2, duration: 0.6 }}
+            >
+              <Card className="data-visualization">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <Shield className="w-5 h-5 mr-2 text-primary" />
+                      Security Headers Analysis
+                    </div>
+                    <div className="flex items-center">
+                      <span className={`text-2xl font-bold mr-2 ${getSSLRatingColor(scan.securityHeaders.grade)}`}>
+                        {scan.securityHeaders.grade}
+                      </span>
+                      <span className="text-sm text-slate-600">({scan.securityHeaders.securityScore}/100)</span>
+                    </div>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-3">Security Headers Status</h4>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">HSTS:</span>
+                            <span className={scan.securityHeaders.hsts ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.securityHeaders.hsts ? 'Present' : 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">CSP:</span>
+                            <span className={scan.securityHeaders.csp ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.securityHeaders.csp ? 'Present' : 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">X-Frame-Options:</span>
+                            <span className={scan.securityHeaders.xFrameOptions ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.securityHeaders.xFrameOptions || 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">X-Content-Type-Options:</span>
+                            <span className={scan.securityHeaders.xContentTypeOptions ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.securityHeaders.xContentTypeOptions || 'Missing'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-600">Referrer-Policy:</span>
+                            <span className={scan.securityHeaders.referrerPolicy ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                              {scan.securityHeaders.referrerPolicy || 'Missing'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {Array.isArray(scan.securityHeaders.missingHeaders) && scan.securityHeaders.missingHeaders.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-900 mb-2">Missing Security Headers</h4>
+                          <div className="space-y-1">
+                            {scan.securityHeaders.missingHeaders.map((header, index) => (
+                              <div key={index} className="flex items-center text-sm">
+                                <XCircle className="w-4 h-4 text-red-500 mr-2 flex-shrink-0" />
+                                <span className="text-red-700">{header}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {Array.isArray(scan.securityHeaders.weakHeaders) && scan.securityHeaders.weakHeaders.length > 0 && (
+                        <div>
+                          <h4 className="font-medium text-slate-900 mb-2">Weak Configurations</h4>
+                          <div className="space-y-1">
+                            {scan.securityHeaders.weakHeaders.map((issue, index) => (
+                              <div key={index} className="flex items-center text-sm">
+                                <AlertTriangle className="w-4 h-4 text-orange-500 mr-2 flex-shrink-0" />
+                                <span className="text-orange-700">{issue}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {(!scan.securityHeaders.missingHeaders || scan.securityHeaders.missingHeaders.length === 0) && 
+                       (!scan.securityHeaders.weakHeaders || scan.securityHeaders.weakHeaders.length === 0) && (
+                        <div className="text-center py-4">
+                          <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                          <p className="text-green-700 font-medium">All security headers properly configured!</p>
                         </div>
                       )}
                     </div>

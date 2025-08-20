@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
-import type { Scan, ScanResult, Vulnerability, SslAnalysis } from '@shared/schema';
+import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders } from '@shared/schema';
 
-export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis }) {
+export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders }) {
   try {
     console.log('Starting PDF generation for scan:', scan.id);
     const doc = new jsPDF();
@@ -154,6 +154,98 @@ export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vuln
           yPos = 20;
         }
         doc.text(`• ${vuln}`, 30, yPos);
+        yPos += 6;
+      });
+    }
+    
+    yPos += 15;
+  }
+  
+  // Security Headers Analysis
+  if (scan.securityHeaders) {
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFontSize(16);
+    doc.text('Security Headers Analysis', 20, yPos);
+    yPos += 15;
+    
+    // Security Headers Grade and Score
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Security Grade:', 25, yPos);
+    
+    const headerGradeColor = scan.securityHeaders.grade === 'A+' || scan.securityHeaders.grade === 'A' ? [34, 197, 94] :
+                            scan.securityHeaders.grade === 'B' ? [234, 179, 8] :
+                            scan.securityHeaders.grade === 'C' ? [249, 115, 22] : [239, 68, 68];
+    doc.setTextColor(headerGradeColor[0], headerGradeColor[1], headerGradeColor[2]);
+    doc.text(scan.securityHeaders.grade, 80, yPos);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`(${scan.securityHeaders.securityScore}/100)`, 95, yPos);
+    doc.setFont('helvetica', 'normal');
+    yPos += 12;
+    
+    // Security Headers Status
+    doc.setFont('helvetica', 'bold');
+    doc.text('Security Headers Status:', 25, yPos);
+    doc.setFont('helvetica', 'normal');
+    yPos += 8;
+    
+    const headers = [
+      { name: 'HSTS', present: !!scan.securityHeaders.hsts },
+      { name: 'Content Security Policy', present: !!scan.securityHeaders.csp },
+      { name: 'X-Frame-Options', present: !!scan.securityHeaders.xFrameOptions },
+      { name: 'X-Content-Type-Options', present: !!scan.securityHeaders.xContentTypeOptions },
+      { name: 'Referrer-Policy', present: !!scan.securityHeaders.referrerPolicy }
+    ];
+    
+    headers.forEach(header => {
+      if (yPos > 270) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(`${header.name}:`, 30, yPos);
+      doc.setTextColor(header.present ? 34 : 239, header.present ? 197 : 68, header.present ? 94 : 68);
+      doc.text(header.present ? 'Present' : 'Missing', 120, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 6;
+    });
+    
+    yPos += 8;
+    
+    // Missing Headers
+    if (Array.isArray(scan.securityHeaders.missingHeaders) && scan.securityHeaders.missingHeaders.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Missing Security Headers:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      yPos += 8;
+      
+      scan.securityHeaders.missingHeaders.forEach((header) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(`• ${header}`, 30, yPos);
+        yPos += 6;
+      });
+      yPos += 6;
+    }
+    
+    // Weak Configurations
+    if (Array.isArray(scan.securityHeaders.weakHeaders) && scan.securityHeaders.weakHeaders.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Weak Configurations:', 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      yPos += 8;
+      
+      scan.securityHeaders.weakHeaders.forEach((issue) => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(`• ${issue}`, 30, yPos);
         yPos += 6;
       });
     }

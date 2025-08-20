@@ -1,4 +1,4 @@
-import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability, type SslAnalysis, type InsertSslAnalysis } from "@shared/schema";
+import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability, type SslAnalysis, type InsertSslAnalysis, type SecurityHeaders, type InsertSecurityHeaders } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -8,9 +8,11 @@ export interface IStorage {
   addScanResult(result: InsertScanResult): Promise<ScanResult>;
   addVulnerability(vulnerability: InsertVulnerability): Promise<Vulnerability>;
   addSslAnalysis(sslAnalysis: InsertSslAnalysis): Promise<SslAnalysis>;
+  addSecurityHeaders(securityHeaders: InsertSecurityHeaders): Promise<SecurityHeaders>;
   getScanResults(scanId: string): Promise<ScanResult[]>;
   getVulnerabilities(scanId: string): Promise<Vulnerability[]>;
   getSslAnalysis(scanId: string): Promise<SslAnalysis | undefined>;
+  getSecurityHeaders(scanId: string): Promise<SecurityHeaders | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -18,12 +20,14 @@ export class MemStorage implements IStorage {
   private scanResults: Map<string, ScanResult>;
   private vulnerabilities: Map<string, Vulnerability>;
   private sslAnalyses: Map<string, SslAnalysis>;
+  private securityHeaders: Map<string, SecurityHeaders>;
 
   constructor() {
     this.scans = new Map();
     this.scanResults = new Map();
     this.vulnerabilities = new Map();
     this.sslAnalyses = new Map();
+    this.securityHeaders = new Map();
   }
 
   async createScan(insertScan: InsertScan): Promise<Scan> {
@@ -110,6 +114,33 @@ export class MemStorage implements IStorage {
 
   async getSslAnalysis(scanId: string): Promise<SslAnalysis | undefined> {
     return Array.from(this.sslAnalyses.values()).find(ssl => ssl.scanId === scanId);
+  }
+
+  async addSecurityHeaders(securityHeaders: InsertSecurityHeaders): Promise<SecurityHeaders> {
+    const id = randomUUID();
+    const headers: SecurityHeaders = { 
+      ...securityHeaders, 
+      id,
+      hsts: securityHeaders.hsts ?? null,
+      csp: securityHeaders.csp ?? null,
+      xFrameOptions: securityHeaders.xFrameOptions ?? null,
+      xContentTypeOptions: securityHeaders.xContentTypeOptions ?? null,
+      xXSSProtection: securityHeaders.xXSSProtection ?? null,
+      referrerPolicy: securityHeaders.referrerPolicy ?? null,
+      permissionsPolicy: securityHeaders.permissionsPolicy ?? null,
+      expectCT: securityHeaders.expectCT ?? null,
+      crossOriginEmbedderPolicy: securityHeaders.crossOriginEmbedderPolicy ?? null,
+      crossOriginOpenerPolicy: securityHeaders.crossOriginOpenerPolicy ?? null,
+      crossOriginResourcePolicy: securityHeaders.crossOriginResourcePolicy ?? null,
+      missingHeaders: securityHeaders.missingHeaders ?? [],
+      weakHeaders: securityHeaders.weakHeaders ?? []
+    };
+    this.securityHeaders.set(id, headers);
+    return headers;
+  }
+
+  async getSecurityHeaders(scanId: string): Promise<SecurityHeaders | undefined> {
+    return Array.from(this.securityHeaders.values()).find(headers => headers.scanId === scanId);
   }
 }
 

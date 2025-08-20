@@ -54,6 +54,27 @@ export const sslAnalysis = pgTable("ssl_analysis", {
   daysUntilExpiry: integer("days_until_expiry"),
 });
 
+export const securityHeaders = pgTable("security_headers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scanId: varchar("scan_id").notNull(),
+  hostname: text("hostname").notNull(),
+  hsts: jsonb("hsts"), // HSTS header details
+  csp: jsonb("csp"), // Content Security Policy details  
+  xFrameOptions: text("x_frame_options"), // X-Frame-Options value
+  xContentTypeOptions: text("x_content_type_options"), // X-Content-Type-Options value
+  xXSSProtection: text("x_xss_protection"), // X-XSS-Protection value
+  referrerPolicy: text("referrer_policy"), // Referrer-Policy value
+  permissionsPolicy: text("permissions_policy"), // Permissions-Policy value
+  expectCT: jsonb("expect_ct"), // Expect-CT header details
+  crossOriginEmbedderPolicy: text("cross_origin_embedder_policy"), // COEP
+  crossOriginOpenerPolicy: text("cross_origin_opener_policy"), // COOP
+  crossOriginResourcePolicy: text("cross_origin_resource_policy"), // CORP
+  securityScore: integer("security_score").notNull(), // 0-100 score
+  grade: text("grade").notNull(), // A+, A, B, C, D, F
+  missingHeaders: jsonb("missing_headers"), // Array of missing security headers
+  weakHeaders: jsonb("weak_headers"), // Array of weak/insecure header configurations
+});
+
 export const insertScanSchema = createInsertSchema(scans).pick({
   url: true,
 });
@@ -70,11 +91,17 @@ export const insertSslAnalysisSchema = createInsertSchema(sslAnalysis).omit({
   id: true,
 });
 
+export const insertSecurityHeadersSchema = createInsertSchema(securityHeaders).omit({
+  id: true,
+});
+
 export type InsertScan = z.infer<typeof insertScanSchema>;
 export type Scan = typeof scans.$inferSelect;
 export type ScanResult = typeof scanResults.$inferSelect;
 export type Vulnerability = typeof vulnerabilities.$inferSelect;
 export type SslAnalysis = typeof sslAnalysis.$inferSelect;
+export type SecurityHeaders = typeof securityHeaders.$inferSelect;
 export type InsertScanResult = z.infer<typeof insertScanResultSchema>;
 export type InsertVulnerability = z.infer<typeof insertVulnerabilitySchema>;
 export type InsertSslAnalysis = z.infer<typeof insertSslAnalysisSchema>;
+export type InsertSecurityHeaders = z.infer<typeof insertSecurityHeadersSchema>;

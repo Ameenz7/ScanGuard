@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import net from "net";
 import { URL } from "url";
 import { analyzeSslCertificate } from "./ssl-analyzer";
+import { analyzeSecurityHeaders } from "./security-headers-analyzer";
 
 // Rate limiting middleware
 const scanLimiter = rateLimit({
@@ -175,12 +176,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const scanResults = await storage.getScanResults(scan.id);
       const vulnerabilities = await storage.getVulnerabilities(scan.id);
       const sslAnalysis = await storage.getSslAnalysis(scan.id);
+      const securityHeaders = await storage.getSecurityHeaders(scan.id);
 
       res.json({
         ...scan,
         scanResults,
         vulnerabilities,
-        sslAnalysis
+        sslAnalysis,
+        securityHeaders
       });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -224,9 +227,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Perform SSL/TLS analysis if HTTPS is supported
+      // Perform SSL/TLS analysis and Security Headers analysis for HTTP/HTTPS sites
       let sslAnalysis = null;
+      let securityHeadersAnalysis = null;
+      
       const httpsPort = results.find(r => r.port === 443 && r.state === 'open');
+      const httpPort = results.find(r => r.port === 80 && r.state === 'open');
+      
       if (httpsPort) {
         try {
           console.log(`Performing SSL analysis for ${url}`);
@@ -237,6 +244,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Analyze security headers for any HTTP/HTTPS site
+      if (httpsPort || httpPort) {
+        try {
+          console.log(`Analyzing security headers for ${url}`);
+          securityHeadersAnalysis = await analyzeSecurityHeaders(url, scanId);
+          await storage.addSecurityHeaders(securityHeadersAnalysis);
+        } catch (error) {
+          console.error('Security headers analysis failed:', error);
+        }
+      }
+      
       await storage.updateScan(scanId, { 
         status: "completed",
         completedAt: new Date(),
@@ -244,7 +262,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           totalPorts: results.length,
           openPorts: results.filter(r => r.state === 'open').length,
           vulnerabilities: vulnerabilities.length,
-          sslAnalyzed: !!sslAnalysis
+          sslAnalyzed: !!sslAnalysis,
+          securityHeadersAnalyzed: !!securityHeadersAnalysis
         }
       });
       
