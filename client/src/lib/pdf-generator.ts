@@ -1,0 +1,155 @@
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import type { Scan, ScanResult, Vulnerability } from '@shared/schema';
+
+// Add type declaration for autoTable
+declare module 'jspdf' {
+  interface jsPDF {
+    autoTable: (options: any) => jsPDF;
+    lastAutoTable?: { finalY: number };
+  }
+}
+
+export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] }) {
+  const doc = new jsPDF();
+  const hostname = new URL(scan.url).hostname;
+  
+  // Header
+  doc.setFontSize(20);
+  doc.setTextColor(44, 82, 130);
+  doc.text('SecureScan Security Report', 20, 25);
+  
+  doc.setFontSize(12);
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Generated on ${new Date().toLocaleDateString()}`, 20, 35);
+  
+  // Target information
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
+  doc.text('Scan Target', 20, 50);
+  
+  doc.setFontSize(12);
+  doc.text(`URL: ${scan.url}`, 20, 60);
+  doc.text(`Hostname: ${hostname}`, 20, 70);
+  doc.text(`Scan Date: ${scan.completedAt ? new Date(scan.completedAt).toLocaleDateString() : 'Unknown'}`, 20, 80);
+  
+  const duration = scan.createdAt && scan.completedAt ? 
+    Math.round((new Date(scan.completedAt).getTime() - new Date(scan.createdAt).getTime()) / 1000) : 0;
+  doc.text(`Duration: ${duration} seconds`, 20, 90);
+  
+  // Executive Summary
+  doc.setFontSize(16);
+  doc.text('Executive Summary', 20, 110);
+  
+  const openPorts = scan.scanResults.filter(result => result.state === 'open');
+  const highRiskCount = scan.vulnerabilities.filter(v => v.severity === 'high').length;
+  const mediumRiskCount = scan.vulnerabilities.filter(v => v.severity === 'medium').length;
+  const lowRiskCount = scan.vulnerabilities.filter(v => v.severity === 'low').length;
+  
+  doc.setFontSize(12);
+  let yPos = 120;
+  doc.text(`• Total Open Ports: ${openPorts.length}`, 30, yPos);
+  yPos += 10;
+  doc.text(`• High Risk Issues: ${highRiskCount}`, 30, yPos);
+  yPos += 10;
+  doc.text(`• Medium Risk Issues: ${mediumRiskCount}`, 30, yPos);
+  yPos += 10;
+  doc.text(`• Low Risk Issues: ${lowRiskCount}`, 30, yPos);
+  yPos += 20;
+  
+  // Open Ports Table
+  if (openPorts.length > 0) {
+    doc.setFontSize(16);
+    doc.text('Open Ports & Services', 20, yPos);
+    yPos += 10;
+    
+    const portData = openPorts.map(port => [
+      port.port.toString(),
+      port.protocol.toUpperCase(),
+      port.service || 'Unknown',
+      port.version || 'Unknown',
+      (port.riskLevel || 'low').charAt(0).toUpperCase() + (port.riskLevel || 'low').slice(1)
+    ]);
+    
+    doc.autoTable({
+      startY: yPos,
+      head: [['Port', 'Protocol', 'Service', 'Version', 'Risk Level']],
+      body: portData,
+      styles: { fontSize: 10 },
+      headStyles: { fillColor: [44, 82, 130] },
+      alternateRowStyles: { fillColor: [245, 245, 245] }
+    });
+    
+    yPos = (doc as any).lastAutoTable.finalY + 20;
+  }
+  
+  // Vulnerabilities
+  if (scan.vulnerabilities.length > 0) {
+    doc.setFontSize(16);
+    doc.text('Security Vulnerabilities', 20, yPos);
+    yPos += 15;
+    
+    scan.vulnerabilities.forEach((vuln, index) => {
+      if (yPos > 250) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${index + 1}. ${vuln.title}`, 20, yPos);
+      yPos += 8;
+      
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      
+      // Severity badge
+      const severityColor: [number, number, number] = vuln.severity === 'high' ? [220, 53, 69] : 
+                           vuln.severity === 'medium' ? [255, 193, 7] : [40, 167, 69];
+      doc.setTextColor(severityColor[0], severityColor[1], severityColor[2]);
+      doc.text(`Severity: ${vuln.severity.toUpperCase()}`, 20, yPos);
+      doc.setTextColor(0, 0, 0);
+      yPos += 8;
+      
+      // Description
+      const descriptionLines = doc.splitTextToSize(vuln.description, 170);
+      doc.text(descriptionLines, 20, yPos);
+      yPos += descriptionLines.length * 5 + 5;
+      
+      // Recommendation
+      if (vuln.recommendation) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Recommendation:', 20, yPos);
+        doc.setFont('helvetica', 'normal');
+        yPos += 5;
+        const recLines = doc.splitTextToSize(vuln.recommendation, 170);
+        doc.text(recLines, 20, yPos);
+        yPos += recLines.length * 5 + 10;
+      }
+      
+      // CVE information
+      if (vuln.cve || vuln.cvssScore) {
+        doc.setFontSize(9);
+        doc.setTextColor(100, 100, 100);
+        if (vuln.cve) doc.text(`CVE: ${vuln.cve}`, 20, yPos);
+        if (vuln.cvssScore) doc.text(`CVSS Score: ${vuln.cvssScore}`, 100, yPos);
+        doc.setTextColor(0, 0, 0);
+        yPos += 15;
+      }
+    });
+  }
+  
+  // Footer on all pages
+  const pageCount = doc.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Generated by SecureScan - Professional Security Analysis', 20, 285);
+    doc.text(`Page ${i} of ${pageCount}`, 170, 285);
+  }
+  
+  // Download the PDF
+  const fileName = `SecureScan_Report_${hostname}_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fileName);
+}

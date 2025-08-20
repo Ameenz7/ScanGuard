@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Scan, ScanResult, Vulnerability } from "@shared/schema";
+import { generatePDFReport } from "../lib/pdf-generator";
 
 interface ScanResultsProps {
   scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] };
@@ -304,7 +305,7 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
         </div>
 
         <div className="mt-8 flex justify-between items-center">
-          <Button variant="outline" className="inline-flex items-center">
+          <Button variant="outline" className="inline-flex items-center" onClick={() => generatePDFReport(scan)}>
             <Download className="w-4 h-4 mr-2" />
             Download PDF Report
           </Button>
