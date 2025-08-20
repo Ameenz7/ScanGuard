@@ -2,8 +2,10 @@ import jsPDF from 'jspdf';
 import type { Scan, ScanResult, Vulnerability } from '@shared/schema';
 
 export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[] }) {
-  const doc = new jsPDF();
-  const hostname = new URL(scan.url).hostname;
+  try {
+    console.log('Starting PDF generation for scan:', scan.id);
+    const doc = new jsPDF();
+    const hostname = new URL(scan.url).hostname;
   
   // Header
   doc.setFontSize(20);
@@ -154,7 +156,13 @@ export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vuln
     doc.text(`Page ${i} of ${pageCount}`, 170, 285);
   }
   
-  // Download the PDF
-  const fileName = `SecureScan_Report_${hostname}_${new Date().toISOString().split('T')[0]}.pdf`;
-  doc.save(fileName);
+    // Download the PDF
+    const fileName = `SecureScan_Report_${hostname}_${new Date().toISOString().split('T')[0]}.pdf`;
+    console.log('Saving PDF with filename:', fileName);
+    doc.save(fileName);
+    console.log('PDF generation completed successfully');
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    alert('Sorry, there was an error generating the PDF report. Please try again.');
+  }
 }
