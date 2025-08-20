@@ -7,6 +7,7 @@ import net from "net";
 import { URL } from "url";
 import { analyzeSslCertificate } from "./ssl-analyzer";
 import { analyzeSecurityHeaders } from "./security-headers-analyzer";
+import { analyzeCloudSecurity } from "./cloud-security-analyzer";
 
 // Rate limiting middleware
 const scanLimiter = rateLimit({
@@ -177,13 +178,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const vulnerabilities = await storage.getVulnerabilities(scan.id);
       const sslAnalysis = await storage.getSslAnalysis(scan.id);
       const securityHeaders = await storage.getSecurityHeaders(scan.id);
+      const cloudSecurityScans = await storage.getCloudSecurityScans(scan.id);
 
       res.json({
         ...scan,
         scanResults,
         vulnerabilities,
         sslAnalysis,
-        securityHeaders
+        securityHeaders,
+        cloudSecurityScans
       });
     } catch (error) {
       res.status(500).json({ error: "Internal server error" });
@@ -227,9 +230,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Perform SSL/TLS analysis and Security Headers analysis for HTTP/HTTPS sites
+      // Perform SSL/TLS analysis, Security Headers analysis, and Cloud Security analysis
       let sslAnalysis = null;
       let securityHeadersAnalysis = null;
+      let cloudSecurityAnalysis: any[] = [];
       
       const httpsPort = results.find(r => r.port === 443 && r.state === 'open');
       const httpPort = results.find(r => r.port === 80 && r.state === 'open');
@@ -254,6 +258,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.error('Security headers analysis failed:', error);
         }
       }
+
+      // Perform cloud security analysis
+      try {
+        console.log(`Analyzing cloud security for ${url}`);
+        cloudSecurityAnalysis = await analyzeCloudSecurity(url, scanId);
+        for (const cloudScan of cloudSecurityAnalysis) {
+          await storage.addCloudSecurityScan(cloudScan);
+        }
+      } catch (error) {
+        console.error('Cloud security analysis failed:', error);
+      }
       
       await storage.updateScan(scanId, { 
         status: "completed",
@@ -263,7 +278,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           openPorts: results.filter(r => r.state === 'open').length,
           vulnerabilities: vulnerabilities.length,
           sslAnalyzed: !!sslAnalysis,
-          securityHeadersAnalyzed: !!securityHeadersAnalysis
+          securityHeadersAnalyzed: !!securityHeadersAnalysis,
+          cloudSecurityScansCount: cloudSecurityAnalysis.length
         }
       });
       

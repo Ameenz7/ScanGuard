@@ -1,16 +1,16 @@
 import { motion } from "framer-motion";
 import { 
   CheckCircle, Wifi, AlertTriangle, XCircle, Shield, Download, RefreshCw, AlertCircle,
-  TrendingUp, Target, Zap 
+  TrendingUp, Target, Zap, Cloud, Server, Database, Lock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders } from "@shared/schema";
+import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders, CloudSecurityScan } from "@shared/schema";
 import { generatePDFReport } from "../lib/pdf-generator";
 
 interface ScanResultsProps {
-  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders };
+  scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders; cloudSecurityScans?: CloudSecurityScan[] };
   onNewScan: () => void;
 }
 
@@ -59,6 +59,35 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
       case 'D': return 'text-red-400';
       case 'F': return 'text-red-500';
       default: return 'text-slate-400';
+    }
+  };
+
+  const getRiskLevelColor = (riskLevel: string) => {
+    switch (riskLevel) {
+      case 'critical': return 'bg-red-100 text-red-800 border-red-200';
+      case 'high': return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'medium': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'low': return 'bg-green-100 text-green-800 border-green-200';
+      default: return 'bg-slate-100 text-slate-800 border-slate-200';
+    }
+  };
+
+  const getCloudProviderIcon = (provider: string) => {
+    switch (provider) {
+      case 'aws': return <Cloud className="w-5 h-5 text-orange-500" />;
+      case 'azure': return <Cloud className="w-5 h-5 text-blue-500" />;
+      case 'gcp': return <Cloud className="w-5 h-5 text-green-500" />;
+      default: return <Server className="w-5 h-5 text-purple-500" />;
+    }
+  };
+
+  const getSeverityIcon = (severity: string) => {
+    switch (severity) {
+      case 'critical': return <XCircle className="w-4 h-4 text-red-600" />;
+      case 'high': return <AlertTriangle className="w-4 h-4 text-orange-600" />;
+      case 'medium': return <AlertCircle className="w-4 h-4 text-yellow-600" />;
+      case 'low': return <CheckCircle className="w-4 h-4 text-blue-600" />;
+      default: return <CheckCircle className="w-4 h-4 text-slate-600" />;
     }
   };
 
@@ -511,14 +540,107 @@ export function ScanResults({ scan, onNewScan }: ScanResultsProps) {
                         </div>
                       )}
                       
-                      {(!scan.securityHeaders.missingHeaders || scan.securityHeaders.missingHeaders.length === 0) && 
-                       (!scan.securityHeaders.weakHeaders || scan.securityHeaders.weakHeaders.length === 0) && (
+                      {(!Array.isArray(scan.securityHeaders.missingHeaders) || scan.securityHeaders.missingHeaders.length === 0) && 
+                       (!Array.isArray(scan.securityHeaders.weakHeaders) || scan.securityHeaders.weakHeaders.length === 0) && (
                         <div className="text-center py-4">
                           <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
                           <p className="text-green-700 font-medium">All security headers properly configured!</p>
                         </div>
                       )}
                     </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* Cloud Security Analysis */}
+          {scan.cloudSecurityScans && scan.cloudSecurityScans.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.4, duration: 0.6 }}
+            >
+              <Card className="data-visualization">
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Cloud className="w-5 h-5 mr-2 text-primary" />
+                    Cloud Security Analysis
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {scan.cloudSecurityScans.map((cloudScan, index) => (
+                      <motion.div
+                        key={cloudScan.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 1.6 + index * 0.1, duration: 0.5 }}
+                        className="border border-slate-200 rounded-lg p-4"
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center">
+                            {getCloudProviderIcon(cloudScan.cloudProvider)}
+                            <div className="ml-3">
+                              <h4 className="font-medium text-slate-900 capitalize">
+                                {cloudScan.cloudProvider} {cloudScan.resourceType}
+                              </h4>
+                              <p className="text-sm text-slate-600">
+                                {cloudScan.resourceId} {cloudScan.region && `• ${cloudScan.region}`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center">
+                            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getRiskLevelColor(cloudScan.riskLevel)}`}>
+                              {cloudScan.riskLevel.toUpperCase()}
+                            </span>
+                            <span className="ml-3 text-lg font-bold text-slate-900">
+                              {cloudScan.score}/100
+                            </span>
+                          </div>
+                        </div>
+                        
+                        {Array.isArray(cloudScan.findings) && cloudScan.findings.length > 0 && (
+                          <div className="space-y-3">
+                            <h5 className="font-medium text-slate-900">Security Findings</h5>
+                            <div className="space-y-2">
+                              {cloudScan.findings.map((finding: any, findingIndex: number) => (
+                                <div key={findingIndex} className="flex items-start p-3 bg-slate-50 rounded-lg">
+                                  <div className="flex-shrink-0 mr-3">
+                                    {getSeverityIcon(finding.severity)}
+                                  </div>
+                                  <div className="flex-1">
+                                    <h6 className="font-medium text-slate-900 text-sm">{finding.title}</h6>
+                                    <p className="text-xs text-slate-600 mt-1">{finding.description}</p>
+                                    {finding.recommendation && (
+                                      <p className="text-xs text-blue-600 mt-2">
+                                        <strong>Recommendation:</strong> {finding.recommendation}
+                                      </p>
+                                    )}
+                                    {Array.isArray(finding.complianceFramework) && finding.complianceFramework.length > 0 && (
+                                      <div className="flex gap-1 mt-2">
+                                        {finding.complianceFramework.map((framework: string, frameworkIndex: number) => (
+                                          <Badge key={frameworkIndex} variant="secondary" className="text-xs">
+                                            {framework}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {(!cloudScan.findings || cloudScan.findings.length === 0) && (
+                          <div className="text-center py-4">
+                            <CheckCircle className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                            <p className="text-green-700 font-medium">No cloud security issues found!</p>
+                          </div>
+                        )}
+                      </motion.div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>

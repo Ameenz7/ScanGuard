@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
-import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders } from '@shared/schema';
+import type { Scan, ScanResult, Vulnerability, SslAnalysis, SecurityHeaders, CloudSecurityScan } from '@shared/schema';
 
-export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders }) {
+export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vulnerabilities: Vulnerability[]; sslAnalysis?: SslAnalysis; securityHeaders?: SecurityHeaders; cloudSecurityScans?: CloudSecurityScan[] }) {
   try {
     console.log('Starting PDF generation for scan:', scan.id);
     const doc = new jsPDF();
@@ -251,6 +251,107 @@ export function generatePDFReport(scan: Scan & { scanResults: ScanResult[]; vuln
     }
     
     yPos += 15;
+  }
+  
+  // Cloud Security Analysis
+  if (scan.cloudSecurityScans && scan.cloudSecurityScans.length > 0) {
+    if (yPos > 200) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.setFontSize(16);
+    doc.text('Cloud Security Analysis', 20, yPos);
+    yPos += 15;
+    
+    scan.cloudSecurityScans.forEach((cloudScan, index) => {
+      if (yPos > 220) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
+      // Cloud provider and resource info
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${cloudScan.cloudProvider.toUpperCase()} ${cloudScan.resourceType}`, 25, yPos);
+      doc.setFont('helvetica', 'normal');
+      yPos += 8;
+      
+      doc.setFontSize(12);
+      doc.text(`Resource: ${cloudScan.resourceId}`, 25, yPos);
+      yPos += 6;
+      
+      if (cloudScan.region) {
+        doc.text(`Region: ${cloudScan.region}`, 25, yPos);
+        yPos += 6;
+      }
+      
+      // Risk level and score
+      doc.setFont('helvetica', 'bold');
+      doc.text('Risk Level:', 25, yPos);
+      
+      const riskColor = cloudScan.riskLevel === 'low' ? [34, 197, 94] :
+                       cloudScan.riskLevel === 'medium' ? [234, 179, 8] :
+                       cloudScan.riskLevel === 'high' ? [249, 115, 22] : [239, 68, 68];
+      doc.setTextColor(riskColor[0], riskColor[1], riskColor[2]);
+      doc.text(cloudScan.riskLevel.toUpperCase(), 70, yPos);
+      doc.setTextColor(0, 0, 0);
+      doc.text(`(${cloudScan.score}/100)`, 110, yPos);
+      doc.setFont('helvetica', 'normal');
+      yPos += 10;
+      
+      // Security findings
+      if (Array.isArray(cloudScan.findings) && cloudScan.findings.length > 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Security Findings:', 25, yPos);
+        doc.setFont('helvetica', 'normal');
+        yPos += 8;
+        
+        cloudScan.findings.forEach((finding: any) => {
+          if (yPos > 270) {
+            doc.addPage();
+            yPos = 20;
+          }
+          
+          doc.setFont('helvetica', 'bold');
+          doc.text(`• ${finding.title}`, 30, yPos);
+          doc.setFont('helvetica', 'normal');
+          yPos += 6;
+          
+          // Split long descriptions into multiple lines
+          const description = finding.description || '';
+          const maxLineLength = 85;
+          const words = description.split(' ');
+          let currentLine = '';
+          
+          words.forEach((word: string) => {
+            if ((currentLine + word).length > maxLineLength) {
+              if (currentLine) {
+                doc.text(currentLine.trim(), 35, yPos);
+                yPos += 5;
+                currentLine = word + ' ';
+              }
+            } else {
+              currentLine += word + ' ';
+            }
+          });
+          
+          if (currentLine.trim()) {
+            doc.text(currentLine.trim(), 35, yPos);
+            yPos += 5;
+          }
+          
+          yPos += 3;
+        });
+      } else {
+        doc.text('No security issues found', 25, yPos);
+        yPos += 6;
+      }
+      
+      yPos += 10;
+    });
+    
+    yPos += 10;
   }
   
   // Vulnerabilities

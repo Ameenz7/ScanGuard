@@ -1,4 +1,4 @@
-import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability, type SslAnalysis, type InsertSslAnalysis, type SecurityHeaders, type InsertSecurityHeaders } from "@shared/schema";
+import { type Scan, type InsertScan, type ScanResult, type InsertScanResult, type Vulnerability, type InsertVulnerability, type SslAnalysis, type InsertSslAnalysis, type SecurityHeaders, type InsertSecurityHeaders, type CloudSecurityScan, type InsertCloudSecurityScan } from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -9,10 +9,12 @@ export interface IStorage {
   addVulnerability(vulnerability: InsertVulnerability): Promise<Vulnerability>;
   addSslAnalysis(sslAnalysis: InsertSslAnalysis): Promise<SslAnalysis>;
   addSecurityHeaders(securityHeaders: InsertSecurityHeaders): Promise<SecurityHeaders>;
+  addCloudSecurityScan(cloudScan: InsertCloudSecurityScan): Promise<CloudSecurityScan>;
   getScanResults(scanId: string): Promise<ScanResult[]>;
   getVulnerabilities(scanId: string): Promise<Vulnerability[]>;
   getSslAnalysis(scanId: string): Promise<SslAnalysis | undefined>;
   getSecurityHeaders(scanId: string): Promise<SecurityHeaders | undefined>;
+  getCloudSecurityScans(scanId: string): Promise<CloudSecurityScan[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -21,6 +23,7 @@ export class MemStorage implements IStorage {
   private vulnerabilities: Map<string, Vulnerability>;
   private sslAnalyses: Map<string, SslAnalysis>;
   private securityHeaders: Map<string, SecurityHeaders>;
+  private cloudSecurityScans: Map<string, CloudSecurityScan>;
 
   constructor() {
     this.scans = new Map();
@@ -28,6 +31,7 @@ export class MemStorage implements IStorage {
     this.vulnerabilities = new Map();
     this.sslAnalyses = new Map();
     this.securityHeaders = new Map();
+    this.cloudSecurityScans = new Map();
   }
 
   async createScan(insertScan: InsertScan): Promise<Scan> {
@@ -141,6 +145,25 @@ export class MemStorage implements IStorage {
 
   async getSecurityHeaders(scanId: string): Promise<SecurityHeaders | undefined> {
     return Array.from(this.securityHeaders.values()).find(headers => headers.scanId === scanId);
+  }
+
+  async addCloudSecurityScan(cloudScan: InsertCloudSecurityScan): Promise<CloudSecurityScan> {
+    const id = randomUUID();
+    const scan: CloudSecurityScan = { 
+      ...cloudScan, 
+      id,
+      region: cloudScan.region ?? null,
+      configurationCheck: cloudScan.configurationCheck ?? null,
+      findings: cloudScan.findings ?? [],
+      remediationSteps: cloudScan.remediationSteps ?? [],
+      scanDate: new Date()
+    };
+    this.cloudSecurityScans.set(id, scan);
+    return scan;
+  }
+
+  async getCloudSecurityScans(scanId: string): Promise<CloudSecurityScan[]> {
+    return Array.from(this.cloudSecurityScans.values()).filter(scan => scan.scanId === scanId);
   }
 }
 

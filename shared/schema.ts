@@ -75,6 +75,22 @@ export const securityHeaders = pgTable("security_headers", {
   weakHeaders: jsonb("weak_headers"), // Array of weak/insecure header configurations
 });
 
+export const cloudSecurityScans = pgTable("cloud_security_scans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scanId: varchar("scan_id").notNull(),
+  cloudProvider: text("cloud_provider").notNull(), // aws, azure, gcp, digitalocean, etc.
+  resourceType: text("resource_type").notNull(), // instance, storage, database, loadbalancer, etc.
+  resourceId: text("resource_id").notNull(),
+  region: text("region"),
+  configurationCheck: jsonb("configuration_check"), // Security configuration analysis
+  complianceFramework: text("compliance_framework"), // CIS, NIST, SOC2, etc.
+  findings: jsonb("findings"), // Array of security findings
+  riskLevel: text("risk_level").notNull(), // low, medium, high, critical
+  remediationSteps: jsonb("remediation_steps"), // Array of remediation recommendations
+  score: integer("score").notNull(), // 0-100 compliance score
+  scanDate: timestamp("scan_date").defaultNow(),
+});
+
 export const insertScanSchema = createInsertSchema(scans).pick({
   url: true,
 });
@@ -95,13 +111,20 @@ export const insertSecurityHeadersSchema = createInsertSchema(securityHeaders).o
   id: true,
 });
 
+export const insertCloudSecurityScanSchema = createInsertSchema(cloudSecurityScans).omit({
+  id: true,
+  scanDate: true,
+});
+
 export type InsertScan = z.infer<typeof insertScanSchema>;
 export type Scan = typeof scans.$inferSelect;
 export type ScanResult = typeof scanResults.$inferSelect;
 export type Vulnerability = typeof vulnerabilities.$inferSelect;
 export type SslAnalysis = typeof sslAnalysis.$inferSelect;
 export type SecurityHeaders = typeof securityHeaders.$inferSelect;
+export type CloudSecurityScan = typeof cloudSecurityScans.$inferSelect;
 export type InsertScanResult = z.infer<typeof insertScanResultSchema>;
 export type InsertVulnerability = z.infer<typeof insertVulnerabilitySchema>;
 export type InsertSslAnalysis = z.infer<typeof insertSslAnalysisSchema>;
 export type InsertSecurityHeaders = z.infer<typeof insertSecurityHeadersSchema>;
+export type InsertCloudSecurityScan = z.infer<typeof insertCloudSecurityScanSchema>;
